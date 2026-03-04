@@ -25,12 +25,14 @@
     cursor: none;
   }
 
-  /* ── Cursor ── */
+  /* ── Cursor ──────────────────────────────────────────────────────────────
+     mix-blend-mode: difference only works if NO ancestor uses filter.
+     Dimming is now handled via a ::before overlay instead of filter:brightness
+     so the stacking context stays clean and blend mode works everywhere. */
   #cursor-dot {
     position: fixed;
     top: 0; left: 0;
-    width: 5px;
-    height: 5px;
+    width: 5px; height: 5px;
     background: #ffffff;
     border-radius: 50%;
     pointer-events: none;
@@ -92,8 +94,8 @@
     position: relative;
     overflow: hidden;
     background: #141414;
-    transition: filter 0.4s ease;
     cursor: none;
+    /* NO filter here — would break mix-blend-mode on cursor */
   }
   .cell img {
     width: 100%;
@@ -102,18 +104,24 @@
     object-position: center top;
     display: block;
     pointer-events: none;
+    transition: opacity 0.4s ease;
   }
-  .cell .placeholder {
-    width: 100%; height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 9px;
-    letter-spacing: 0.15em;
-    color: rgba(255,255,255,0.1);
-    background: linear-gradient(135deg, #111, #181818);
-    user-select: none;
+
+  /* Dim overlay — replaces filter:brightness, doesn't break blend mode */
+  .cell::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: #000;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    z-index: 1;
+    pointer-events: none;
   }
+  /* Dim non-active cells */
+  .grid.has-hover .cell:not(.active)::before { opacity: 0.62; }
+
+  /* Bottom vignette on active */
   .cell::after {
     content: '';
     position: absolute;
@@ -122,6 +130,7 @@
     opacity: 0;
     transition: opacity 0.4s ease;
     pointer-events: none;
+    z-index: 1;
   }
   .grid.has-hover .cell.active::after { opacity: 1; }
 
@@ -151,6 +160,8 @@
     line-height: 1;
     margin-top: 1px;
   }
+
+  /* Gold ring */
   .badge-circle {
     position: absolute;
     bottom: 12px; right: 14px;
@@ -172,10 +183,10 @@
     border-radius: 50%;
     background: var(--accent);
   }
+
   .grid.has-hover .cell.active .badge        { opacity: 1; transform: translateY(0); }
   .grid.has-hover .cell.active .badge-circle { opacity: 1; transform: scale(1); }
-  .grid.has-hover .cell:not(.active)         { filter: brightness(0.4); }
-  .grid.has-hover .cell.active               { filter: brightness(1.08); z-index: 2; }
+  .grid.has-hover .cell.active               { z-index: 2; }
 
   /* ── Lightbox ── */
   #lightbox {
@@ -201,16 +212,10 @@
     object-fit: contain;
     transform: scale(0.92);
     opacity: 0;
-    transition:
-      transform 0.55s cubic-bezier(0.22, 1, 0.36, 1),
-      opacity   0.45s ease;
+    transition: transform 0.55s cubic-bezier(0.22,1,0.36,1), opacity 0.45s ease;
   }
-  #lightbox.open #lightbox-img {
-    transform: scale(1);
-    opacity: 1;
-  }
+  #lightbox.open #lightbox-img { transform: scale(1); opacity: 1; }
 
-  /* Close button */
   #lightbox-close {
     position: fixed;
     top: 28px; right: 36px;
@@ -224,8 +229,7 @@
     transition: opacity 0.4s ease 0.2s;
   }
   #lightbox.open #lightbox-close { opacity: 1; }
-  #lightbox-close::before,
-  #lightbox-close::after {
+  #lightbox-close::before, #lightbox-close::after {
     content: '';
     position: absolute;
     width: 20px; height: 1px;
@@ -234,7 +238,6 @@
   #lightbox-close::before { transform: rotate(45deg); }
   #lightbox-close::after  { transform: rotate(-45deg); }
 
-  /* Nav arrows */
   .lb-arrow {
     position: fixed;
     top: 50%;
@@ -246,6 +249,8 @@
     cursor: none;
     z-index: 8100;
     opacity: 0;
+    background: none;
+    border: none;
     transition: opacity 0.4s ease 0.2s;
   }
   #lightbox.open .lb-arrow { opacity: 1; }
@@ -256,10 +261,8 @@
     stroke: var(--fg);
     stroke-width: 1;
     fill: none;
-    transition: stroke 0.2s;
   }
 
-  /* Look counter */
   #lightbox-label {
     position: fixed;
     bottom: 32px;
@@ -419,17 +422,15 @@
   const lbPrev        = document.getElementById('lb-prev');
   const lbNext        = document.getElementById('lb-next');
 
-  let lightboxOpen  = false;
-  let currentIndex  = 0;
-  // Only images that exist
-  const lbImages = images.filter(Boolean);
+  let lightboxOpen = false;
+  let currentIndex = 0;
+  const lbImages   = images.filter(Boolean);
 
   function openLightbox(idx) {
     currentIndex = idx;
     showImage(currentIndex);
     lightbox.classList.add('open');
     lightboxOpen = true;
-    // Reset grid while lightbox is open
     grid.classList.remove('has-hover');
     cells.forEach(c => c.classList.remove('active'));
     grid.style.gridTemplateColumns = defaultCols;
@@ -442,35 +443,23 @@
   }
 
   function showImage(idx) {
-    // Brief fade out before swap
-    lightboxImg.style.opacity = '0';
+    lightboxImg.style.opacity   = '0';
     lightboxImg.style.transform = 'scale(0.96)';
     setTimeout(() => {
-      lightboxImg.src = lbImages[idx];
-      lightboxImg.style.opacity = '1';
+      lightboxImg.src             = lbImages[idx];
+      lightboxImg.style.opacity   = '1';
       lightboxImg.style.transform = 'scale(1)';
     }, 180);
-    lightboxLabel.textContent = `DKNY · SP26 · Look ${String(idx + 1).padStart(2, '0')} of ${String(lbImages.length).padStart(2, '0')}`;
+    lightboxLabel.textContent = `DKNY · SP26 · Look ${String(idx + 1).padStart(2,'0')} of ${String(lbImages.length).padStart(2,'0')}`;
   }
 
-  function prevImage() {
-    currentIndex = (currentIndex - 1 + lbImages.length) % lbImages.length;
-    showImage(currentIndex);
-  }
-
-  function nextImage() {
-    currentIndex = (currentIndex + 1) % lbImages.length;
-    showImage(currentIndex);
-  }
+  function prevImage() { currentIndex = (currentIndex - 1 + lbImages.length) % lbImages.length; showImage(currentIndex); }
+  function nextImage() { currentIndex = (currentIndex + 1) % lbImages.length; showImage(currentIndex); }
 
   lbClose.addEventListener('click', closeLightbox);
   lbPrev.addEventListener('click', prevImage);
   lbNext.addEventListener('click', nextImage);
-
-  lightbox.addEventListener('click', e => {
-    if (e.target === lightbox) closeLightbox();
-  });
-
+  lightbox.addEventListener('click', e => { if (e.target === lightbox) closeLightbox(); });
   document.addEventListener('keydown', e => {
     if (!lightboxOpen) return;
     if (e.key === 'Escape')     closeLightbox();
@@ -511,8 +500,7 @@
   (function animate() {
     vx = (vx + (mx - rx) * SPRING) * DAMPING;
     vy = (vy + (my - ry) * SPRING) * DAMPING;
-    rx += vx;
-    ry += vy;
+    rx += vx; ry += vy;
 
     const speed   = Math.sqrt(vx * vx + vy * vy);
     const angle   = Math.atan2(vy, vx);

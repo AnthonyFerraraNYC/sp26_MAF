@@ -25,29 +25,26 @@
     cursor: none;
   }
 
-  /* ── Cursor ──────────────────────────────────────────────────────────────
-     White with black drop-shadow = always visible on any background.
-     No mix-blend-mode, no pixel sampling, no CORS issues, no z-index fights. */
-  #cursor-dot {
+  /* ── Cursor ── */
+  .cur-dot {
     position: fixed;
-    top: 0; left: 0;
     width: 6px; height: 6px;
-    background: #ffffff;
+    background: #fff;
     border-radius: 50%;
     pointer-events: none;
-    z-index: 999999;
+    z-index: 2147483647; /* max possible z-index */
     transform: translate(-50%, -50%);
-    /* Black halo makes it pop on white/light images */
-    box-shadow: 0 0 0 1px rgba(0,0,0,0.8), 0 0 6px rgba(0,0,0,0.5);
+    box-shadow: 0 0 0 1.5px #000, 0 0 5px rgba(0,0,0,0.6);
+    will-change: transform;
   }
-
-  #cursor-svg {
+  .cur-ring {
     position: fixed;
-    top: 0; left: 0;
     pointer-events: none;
-    z-index: 999998;
-    /* Drop shadow on the SVG ring */
-    filter: drop-shadow(0 0 2px rgba(0,0,0,0.9)) drop-shadow(0 0 1px rgba(0,0,0,1));
+    z-index: 2147483646;
+    will-change: transform;
+    /* Larger than the ellipse to give shadow room — no corner artifacts */
+    width: 80px; height: 80px;
+    overflow: visible;
   }
 
   /* ── Header ── */
@@ -80,7 +77,6 @@
     width: 100%;
     height: calc(100vh - var(--header-h));
     padding: var(--gap);
-    isolation: isolate;
   }
   .grid {
     display: grid;
@@ -171,15 +167,11 @@
     transition: opacity 0.4s ease 0.06s, transform 0.5s cubic-bezier(0.22,1,0.36,1) 0.06s;
     pointer-events: none;
     z-index: 3;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: flex; align-items: center; justify-content: center;
   }
   .badge-circle::after {
-    content: '';
-    width: 5px; height: 5px;
-    border-radius: 50%;
-    background: var(--accent);
+    content: ''; width: 5px; height: 5px;
+    border-radius: 50%; background: var(--accent);
   }
 
   .grid.has-hover .cell.active .badge        { opacity: 1; transform: translateY(0); }
@@ -188,75 +180,51 @@
 
   /* ── Lightbox ── */
   #lightbox {
-    position: fixed;
-    inset: 0;
-    z-index: 9000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    position: fixed; inset: 0; z-index: 9000;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none;
     background: rgba(0,0,0,0);
-    opacity: 0;
-    pointer-events: none;
     transition: opacity 0.5s ease, background 0.5s ease;
   }
-  #lightbox.open {
-    opacity: 1;
-    pointer-events: all;
-    background: rgba(0,0,0,0.92);
-  }
+  #lightbox.open { opacity: 1; pointer-events: all; background: rgba(0,0,0,0.92); }
   #lightbox-img {
-    max-width: 90vw;
-    max-height: 92vh;
-    object-fit: contain;
-    transform: scale(0.92);
-    opacity: 0;
+    max-width: 90vw; max-height: 92vh; object-fit: contain;
+    transform: scale(0.92); opacity: 0;
     transition: transform 0.55s cubic-bezier(0.22,1,0.36,1), opacity 0.45s ease;
   }
   #lightbox.open #lightbox-img { transform: scale(1); opacity: 1; }
 
   #lightbox-close {
-    position: fixed;
-    top: 28px; right: 36px;
+    position: fixed; top: 28px; right: 36px;
     width: 40px; height: 40px;
     display: flex; align-items: center; justify-content: center;
-    z-index: 9100;
-    cursor: none;
-    opacity: 0;
+    z-index: 9100; cursor: none; opacity: 0;
     transition: opacity 0.4s ease 0.2s;
   }
   #lightbox.open #lightbox-close { opacity: 1; }
   #lightbox-close::before, #lightbox-close::after {
-    content: '';
-    position: absolute;
-    width: 20px; height: 1px;
-    background: var(--fg);
+    content: ''; position: absolute; width: 20px; height: 1px; background: var(--fg);
   }
   #lightbox-close::before { transform: rotate(45deg); }
   #lightbox-close::after  { transform: rotate(-45deg); }
 
   .lb-arrow {
-    position: fixed;
-    top: 50%; transform: translateY(-50%);
+    position: fixed; top: 50%; transform: translateY(-50%);
     width: 52px; height: 52px;
     display: flex; align-items: center; justify-content: center;
-    cursor: none;
-    z-index: 9100;
-    opacity: 0;
+    cursor: none; z-index: 9100; opacity: 0;
     background: none; border: none;
     transition: opacity 0.4s ease 0.2s;
   }
   #lightbox.open .lb-arrow { opacity: 1; }
-  #lb-prev { left: 28px; }
-  #lb-next { right: 28px; }
+  #lb-prev { left: 28px; } #lb-next { right: 28px; }
   .lb-arrow svg { width: 24px; height: 24px; stroke: var(--fg); stroke-width: 1; fill: none; }
 
   #lightbox-label {
-    position: fixed;
-    bottom: 32px; left: 50%; transform: translateX(-50%);
+    position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
     font-size: 9px; letter-spacing: 0.25em; text-transform: uppercase;
-    color: rgba(232,224,212,0.4);
-    opacity: 0; transition: opacity 0.4s ease 0.25s;
-    z-index: 9100; white-space: nowrap;
+    color: rgba(232,224,212,0.4); opacity: 0; white-space: nowrap;
+    transition: opacity 0.4s ease 0.25s; z-index: 9100;
   }
   #lightbox.open #lightbox-label { opacity: 1; }
 </style>
@@ -274,23 +242,11 @@
 
 <div id="lightbox">
   <div id="lightbox-close"></div>
-  <button class="lb-arrow" id="lb-prev" aria-label="Previous">
-    <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
-  </button>
+  <button class="lb-arrow" id="lb-prev"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></button>
   <img id="lightbox-img" src="" alt="">
-  <button class="lb-arrow" id="lb-next" aria-label="Next">
-    <svg viewBox="0 0 24 24"><polyline points="9 6 15 12 9 18"/></svg>
-  </button>
+  <button class="lb-arrow" id="lb-next"><svg viewBox="0 0 24 24"><polyline points="9 6 15 12 9 18"/></svg></button>
   <div id="lightbox-label"></div>
 </div>
-
-<!-- Cursor last in DOM = always on top -->
-<svg id="cursor-svg" width="60" height="60" viewBox="0 0 60 60">
-  <ellipse id="cursor-ring" cx="30" cy="30" rx="22" ry="22"
-    fill="none" stroke="#ffffff" stroke-width="1.5"
-    style="transform-origin: 30px 30px;"/>
-</svg>
-<div id="cursor-dot"></div>
 
 <script>
   const images = [
@@ -308,12 +264,8 @@
     "DKNY_SP26_LOOKBOOK_39.jpg",
   ];
 
-  const COLS  = 3;
-  const ROWS  = Math.ceil(images.length / COLS);
-  const TOTAL = ROWS * COLS;
-  const EXPAND_COL = 2.6;
-  const EXPAND_ROW = 3.2;
-  const FALLOFF    = 1.4;
+  const COLS=3, ROWS=Math.ceil(images.length/3), TOTAL=ROWS*3;
+  const EXPAND_COL=2.6, EXPAND_ROW=3.2, FALLOFF=1.4;
 
   const grid        = document.getElementById('grid');
   const defaultCols = Array(COLS).fill('1fr').join(' ');
@@ -323,54 +275,41 @@
 
   for (let i = 0; i < TOTAL; i++) {
     const cell = document.createElement('div');
-    cell.className = 'cell';
-    cell.dataset.index = i;
-
+    cell.className = 'cell'; cell.dataset.index = i;
     if (images[i]) {
       const img = document.createElement('img');
-      img.src     = images[i];
-      img.alt     = `Look ${i + 1}`;
+      img.src = images[i]; img.alt = `Look ${i+1}`;
       img.loading = i < COLS ? 'eager' : 'lazy';
       cell.appendChild(img);
-    } else {
-      const ph = document.createElement('div');
-      ph.className = 'placeholder';
-      cell.appendChild(ph);
     }
-
     const badge = document.createElement('div');
     badge.className = 'badge';
-    badge.innerHTML = `<div class="badge-sub">DKNY &middot; SP26</div><div class="badge-num">${String(i + 1).padStart(2, '0')}</div>`;
+    badge.innerHTML = `<div class="badge-sub">DKNY &middot; SP26</div><div class="badge-num">${String(i+1).padStart(2,'0')}</div>`;
     cell.appendChild(badge);
-
     const ring = document.createElement('div');
     ring.className = 'badge-circle';
     cell.appendChild(ring);
-
     grid.appendChild(cell);
   }
 
-  function trackSizes(n, hoveredIdx, expand, falloff) {
-    const raw = Array.from({ length: n }, (_, i) => {
-      const dist = Math.abs(i - hoveredIdx);
-      return 1 + (expand - 1) * Math.exp(-dist * dist * falloff);
-    });
-    const total = raw.reduce((a, b) => a + b, 0);
-    return raw.map(v => (v / total) * n);
+  function trackSizes(n, idx, expand, falloff) {
+    const raw = Array.from({length:n},(_,i)=>1+(expand-1)*Math.exp(-Math.pow(Math.abs(i-idx),2)*falloff));
+    const sum = raw.reduce((a,b)=>a+b,0);
+    return raw.map(v=>(v/sum)*n);
   }
 
   const cells = [...grid.querySelectorAll('.cell')];
+  let lightboxOpen = false;
 
   cells.forEach((cell, i) => {
-    const col = i % COLS;
-    const row = Math.floor(i / COLS);
+    const col = i % COLS, row = Math.floor(i / COLS);
     cell.addEventListener('mouseenter', () => {
       if (lightboxOpen) return;
       grid.classList.add('has-hover');
       cells.forEach(c => c.classList.remove('active'));
       cell.classList.add('active');
-      grid.style.gridTemplateColumns = trackSizes(COLS, col, EXPAND_COL, FALLOFF).map(v => `${v}fr`).join(' ');
-      grid.style.gridTemplateRows    = trackSizes(ROWS, row, EXPAND_ROW, FALLOFF).map(v => `${v}fr`).join(' ');
+      grid.style.gridTemplateColumns = trackSizes(COLS,col,EXPAND_COL,FALLOFF).map(v=>`${v}fr`).join(' ');
+      grid.style.gridTemplateRows    = trackSizes(ROWS,row,EXPAND_ROW,FALLOFF).map(v=>`${v}fr`).join(' ');
     });
     cell.addEventListener('click', () => { if (images[i]) openLightbox(i); });
   });
@@ -386,81 +325,112 @@
   const lightbox      = document.getElementById('lightbox');
   const lightboxImg   = document.getElementById('lightbox-img');
   const lightboxLabel = document.getElementById('lightbox-label');
-  let lightboxOpen = false;
-  let currentIndex = 0;
-  const lbImages   = images.filter(Boolean);
+  const lbImages      = images.filter(Boolean);
+  let currentIndex    = 0;
 
   function openLightbox(idx) {
     currentIndex = idx; showImage(idx);
     lightbox.classList.add('open'); lightboxOpen = true;
-    grid.classList.remove('has-hover'); cells.forEach(c => c.classList.remove('active'));
+    grid.classList.remove('has-hover'); cells.forEach(c=>c.classList.remove('active'));
     grid.style.gridTemplateColumns = defaultCols;
     grid.style.gridTemplateRows    = defaultRows;
   }
   function closeLightbox() { lightbox.classList.remove('open'); lightboxOpen = false; }
   function showImage(idx) {
-    lightboxImg.style.opacity = '0'; lightboxImg.style.transform = 'scale(0.96)';
-    setTimeout(() => { lightboxImg.src = lbImages[idx]; lightboxImg.style.opacity = '1'; lightboxImg.style.transform = 'scale(1)'; }, 180);
-    lightboxLabel.textContent = `DKNY · SP26 · Look ${String(idx+1).padStart(2,'0')} of ${String(lbImages.length).padStart(2,'0')}`;
+    lightboxImg.style.opacity='0'; lightboxImg.style.transform='scale(0.96)';
+    setTimeout(()=>{ lightboxImg.src=lbImages[idx]; lightboxImg.style.opacity='1'; lightboxImg.style.transform='scale(1)'; },180);
+    lightboxLabel.textContent=`DKNY · SP26 · Look ${String(idx+1).padStart(2,'0')} of ${String(lbImages.length).padStart(2,'0')}`;
   }
-  function prevImage() { currentIndex = (currentIndex - 1 + lbImages.length) % lbImages.length; showImage(currentIndex); }
-  function nextImage() { currentIndex = (currentIndex + 1) % lbImages.length; showImage(currentIndex); }
+  function prevImage(){ currentIndex=(currentIndex-1+lbImages.length)%lbImages.length; showImage(currentIndex); }
+  function nextImage(){ currentIndex=(currentIndex+1)%lbImages.length; showImage(currentIndex); }
 
   document.getElementById('lightbox-close').addEventListener('click', closeLightbox);
   document.getElementById('lb-prev').addEventListener('click', prevImage);
   document.getElementById('lb-next').addEventListener('click', nextImage);
-  lightbox.addEventListener('click', e => { if (e.target === lightbox) closeLightbox(); });
-  document.addEventListener('keydown', e => {
-    if (!lightboxOpen) return;
-    if (e.key === 'Escape') closeLightbox();
-    if (e.key === 'ArrowLeft') prevImage();
-    if (e.key === 'ArrowRight') nextImage();
+  lightbox.addEventListener('click', e=>{ if(e.target===lightbox) closeLightbox(); });
+  document.addEventListener('keydown', e=>{
+    if(!lightboxOpen) return;
+    if(e.key==='Escape') closeLightbox();
+    if(e.key==='ArrowLeft') prevImage();
+    if(e.key==='ArrowRight') nextImage();
   });
 
-  // ── Cursor ────────────────────────────────────────────────────────────────
-  const cursorSvg  = document.getElementById('cursor-svg');
-  const cursorRing = document.getElementById('cursor-ring');
-  const cursorDot  = document.getElementById('cursor-dot');
+  // ── Cursor — built and appended via JS to guarantee last in DOM ────────────
+  // Last element in body = always renders on top, no z-index battles possible.
+  const dot = document.createElement('div');
+  dot.className = 'cur-dot';
+  dot.style.cssText = 'left:-100px;top:-100px;';
 
-  const SPRING = 0.12, DAMPING = 0.78, BASE_R = 22, MAX_SQUASH = 0.45;
-  let mx = window.innerWidth/2, my = window.innerHeight/2;
-  let rx = mx, ry = my, vx = 0, vy = 0, isHovering = false;
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const svg   = document.createElementNS(svgNS, 'svg');
+  svg.setAttribute('viewBox', '0 0 80 80');
+  svg.setAttribute('width',  '80');
+  svg.setAttribute('height', '80');
+  svg.className = 'cur-ring';
+  svg.style.cssText = 'left:-100px;top:-100px;';
 
-  cells.forEach(cell => {
-    cell.addEventListener('mouseenter', () => isHovering = true);
-    cell.addEventListener('mouseleave', () => isHovering = false);
+  const ellipse = document.createElementNS(svgNS, 'ellipse');
+  ellipse.setAttribute('cx', '40');
+  ellipse.setAttribute('cy', '40');
+  ellipse.setAttribute('rx', '22');
+  ellipse.setAttribute('ry', '22');
+  ellipse.setAttribute('fill', 'none');
+  ellipse.setAttribute('stroke', '#ffffff');
+  ellipse.setAttribute('stroke-width', '1.5');
+  ellipse.style.transformOrigin = '40px 40px';
+  // Shadow via SVG filter — defined inside SVG so it clips correctly
+  svg.innerHTML = `
+    <defs>
+      <filter id="cshadow" x="-50%" y="-50%" width="200%" height="200%">
+        <feDropShadow dx="0" dy="0" stdDeviation="2" flood-color="#000" flood-opacity="0.9"/>
+      </filter>
+    </defs>`;
+  ellipse.setAttribute('filter', 'url(#cshadow)');
+  svg.appendChild(ellipse);
+
+  document.body.appendChild(svg);
+  document.body.appendChild(dot);
+
+  const SPRING=0.12, DAMPING=0.78, BASE_R=22, MAX_SQUASH=0.45;
+  let mx=window.innerWidth/2, my=window.innerHeight/2;
+  let rx=mx, ry=my, vx=0, vy=0, isHovering=false;
+
+  cells.forEach(cell=>{
+    cell.addEventListener('mouseenter',()=>isHovering=true);
+    cell.addEventListener('mouseleave',()=>isHovering=false);
   });
 
-  document.addEventListener('mousemove', e => {
-    mx = e.clientX; my = e.clientY;
-    cursorDot.style.left = mx + 'px';
-    cursorDot.style.top  = my + 'px';
+  document.addEventListener('mousemove', e=>{
+    mx=e.clientX; my=e.clientY;
+    dot.style.left = mx+'px';
+    dot.style.top  = my+'px';
   });
 
-  function lerp(a, b, t) { return a + (b - a) * t; }
+  function lerp(a,b,t){ return a+(b-a)*t; }
 
-  (function animate() {
-    vx = (vx + (mx - rx) * SPRING) * DAMPING;
-    vy = (vy + (my - ry) * SPRING) * DAMPING;
-    rx += vx; ry += vy;
+  (function animate(){
+    vx=(vx+(mx-rx)*SPRING)*DAMPING;
+    vy=(vy+(my-ry)*SPRING)*DAMPING;
+    rx+=vx; ry+=vy;
 
-    const speed = Math.sqrt(vx*vx + vy*vy);
-    const angle = Math.atan2(vy, vx);
-    const stretch = Math.min(speed * 0.045, MAX_SQUASH);
+    const speed   = Math.sqrt(vx*vx+vy*vy);
+    const angle   = Math.atan2(vy,vx);
+    const stretch = Math.min(speed*0.045, MAX_SQUASH);
 
-    const targetRx = isHovering ? BASE_R * 1.9 : BASE_R * (1 + stretch);
-    const targetRy = isHovering ? BASE_R * 1.9 : BASE_R * Math.max(0.55, 1 - stretch * 0.7);
+    const targetRx = isHovering ? BASE_R*1.9 : BASE_R*(1+stretch);
+    const targetRy = isHovering ? BASE_R*1.9 : BASE_R*Math.max(0.55,1-stretch*0.7);
 
-    const newRx = lerp(parseFloat(cursorRing.getAttribute('rx')) || BASE_R, targetRx, 0.18);
-    const newRy = lerp(parseFloat(cursorRing.getAttribute('ry')) || BASE_R, targetRy, 0.18);
+    const newRx = lerp(parseFloat(ellipse.getAttribute('rx'))||BASE_R, targetRx, 0.18);
+    const newRy = lerp(parseFloat(ellipse.getAttribute('ry'))||BASE_R, targetRy, 0.18);
 
-    cursorRing.setAttribute('rx', newRx);
-    cursorRing.setAttribute('ry', newRy);
-    cursorRing.style.transform = `rotate(${angle * (180/Math.PI)}deg)`;
-    cursorRing.style.opacity   = isHovering ? '0.85' : '1';
+    ellipse.setAttribute('rx', newRx);
+    ellipse.setAttribute('ry', newRy);
+    ellipse.style.transform = `rotate(${angle*(180/Math.PI)}deg)`;
+    ellipse.style.opacity   = isHovering ? '0.85' : '1';
 
-    cursorSvg.style.left = (rx - 30) + 'px';
-    cursorSvg.style.top  = (ry - 30) + 'px';
+    // Centre the 80×80 SVG on the ring position
+    svg.style.left = (rx-40)+'px';
+    svg.style.top  = (ry-40)+'px';
 
     requestAnimationFrame(animate);
   })();

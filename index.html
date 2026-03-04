@@ -25,26 +25,13 @@
     cursor: none;
   }
 
-  /* ── Cursor ── */
-  .cur-dot {
+  /* ── Canvas cursor overlay ──
+     Sits over everything. Canvas 2D context draws above all DOM stacking contexts. */
+  #cursor-canvas {
     position: fixed;
-    width: 6px; height: 6px;
-    background: #fff;
-    border-radius: 50%;
+    inset: 0;
     pointer-events: none;
-    z-index: 2147483647; /* max possible z-index */
-    transform: translate(-50%, -50%);
-    box-shadow: 0 0 0 1.5px #000, 0 0 5px rgba(0,0,0,0.6);
-    will-change: transform;
-  }
-  .cur-ring {
-    position: fixed;
-    pointer-events: none;
-    z-index: 2147483646;
-    will-change: transform;
-    /* Larger than the ellipse to give shadow room — no corner artifacts */
-    width: 80px; height: 80px;
-    overflow: visible;
+    z-index: 2147483647;
   }
 
   /* ── Header ── */
@@ -187,6 +174,7 @@
     transition: opacity 0.5s ease, background 0.5s ease;
   }
   #lightbox.open { opacity: 1; pointer-events: all; background: rgba(0,0,0,0.92); }
+
   #lightbox-img {
     max-width: 90vw; max-height: 92vh; object-fit: contain;
     transform: scale(0.92); opacity: 0;
@@ -248,7 +236,11 @@
   <div id="lightbox-label"></div>
 </div>
 
+<!-- Canvas cursor — last element, drawn on top of everything -->
+<canvas id="cursor-canvas"></canvas>
+
 <script>
+  // ── Images ────────────────────────────────────────────────────────────────
   const images = [
     "DKNY_SP26_LOOKBOOK_01.jpg",
     "DKNY_SP26_LOOKBOOK_02.jpg",
@@ -267,6 +259,7 @@
   const COLS=3, ROWS=Math.ceil(images.length/3), TOTAL=ROWS*3;
   const EXPAND_COL=2.6, EXPAND_ROW=3.2, FALLOFF=1.4;
 
+  // ── Build grid ────────────────────────────────────────────────────────────
   const grid        = document.getElementById('grid');
   const defaultCols = Array(COLS).fill('1fr').join(' ');
   const defaultRows = Array(ROWS).fill('1fr').join(' ');
@@ -292,6 +285,7 @@
     grid.appendChild(cell);
   }
 
+  // ── Accordion ─────────────────────────────────────────────────────────────
   function trackSizes(n, idx, expand, falloff) {
     const raw = Array.from({length:n},(_,i)=>1+(expand-1)*Math.exp(-Math.pow(Math.abs(i-idx),2)*falloff));
     const sum = raw.reduce((a,b)=>a+b,0);
@@ -301,42 +295,42 @@
   const cells = [...grid.querySelectorAll('.cell')];
   let lightboxOpen = false;
 
-  cells.forEach((cell, i) => {
-    const col = i % COLS, row = Math.floor(i / COLS);
+  cells.forEach((cell,i) => {
+    const col = i%COLS, row = Math.floor(i/COLS);
     cell.addEventListener('mouseenter', () => {
       if (lightboxOpen) return;
       grid.classList.add('has-hover');
-      cells.forEach(c => c.classList.remove('active'));
+      cells.forEach(c=>c.classList.remove('active'));
       cell.classList.add('active');
       grid.style.gridTemplateColumns = trackSizes(COLS,col,EXPAND_COL,FALLOFF).map(v=>`${v}fr`).join(' ');
       grid.style.gridTemplateRows    = trackSizes(ROWS,row,EXPAND_ROW,FALLOFF).map(v=>`${v}fr`).join(' ');
     });
-    cell.addEventListener('click', () => { if (images[i]) openLightbox(i); });
+    cell.addEventListener('click', ()=>{ if(images[i]) openLightbox(i); });
   });
 
   grid.addEventListener('mouseleave', () => {
     if (lightboxOpen) return;
     grid.classList.remove('has-hover');
-    cells.forEach(c => c.classList.remove('active'));
+    cells.forEach(c=>c.classList.remove('active'));
     grid.style.gridTemplateColumns = defaultCols;
     grid.style.gridTemplateRows    = defaultRows;
   });
 
+  // ── Lightbox ──────────────────────────────────────────────────────────────
   const lightbox      = document.getElementById('lightbox');
   const lightboxImg   = document.getElementById('lightbox-img');
   const lightboxLabel = document.getElementById('lightbox-label');
   const lbImages      = images.filter(Boolean);
   let currentIndex    = 0;
 
-  function openLightbox(idx) {
-    currentIndex = idx; showImage(idx);
-    lightbox.classList.add('open'); lightboxOpen = true;
+  function openLightbox(idx){
+    currentIndex=idx; showImage(idx);
+    lightbox.classList.add('open'); lightboxOpen=true;
     grid.classList.remove('has-hover'); cells.forEach(c=>c.classList.remove('active'));
-    grid.style.gridTemplateColumns = defaultCols;
-    grid.style.gridTemplateRows    = defaultRows;
+    grid.style.gridTemplateColumns=defaultCols; grid.style.gridTemplateRows=defaultRows;
   }
-  function closeLightbox() { lightbox.classList.remove('open'); lightboxOpen = false; }
-  function showImage(idx) {
+  function closeLightbox(){ lightbox.classList.remove('open'); lightboxOpen=false; }
+  function showImage(idx){
     lightboxImg.style.opacity='0'; lightboxImg.style.transform='scale(0.96)';
     setTimeout(()=>{ lightboxImg.src=lbImages[idx]; lightboxImg.style.opacity='1'; lightboxImg.style.transform='scale(1)'; },180);
     lightboxLabel.textContent=`DKNY · SP26 · Look ${String(idx+1).padStart(2,'0')} of ${String(lbImages.length).padStart(2,'0')}`;
@@ -355,60 +349,38 @@
     if(e.key==='ArrowRight') nextImage();
   });
 
-  // ── Cursor — built and appended via JS to guarantee last in DOM ────────────
-  // Last element in body = always renders on top, no z-index battles possible.
-  const dot = document.createElement('div');
-  dot.className = 'cur-dot';
-  dot.style.cssText = 'left:-100px;top:-100px;';
+  // ── Canvas cursor ─────────────────────────────────────────────────────────
+  // Drawn directly to canvas — bypasses ALL CSS stacking contexts, z-index,
+  // isolation, transforms. Always on top. No exceptions.
+  const canvas = document.getElementById('cursor-canvas');
+  const ctx    = canvas.getContext('2d');
 
-  const svgNS = 'http://www.w3.org/2000/svg';
-  const svg   = document.createElementNS(svgNS, 'svg');
-  svg.setAttribute('viewBox', '0 0 80 80');
-  svg.setAttribute('width',  '80');
-  svg.setAttribute('height', '80');
-  svg.className = 'cur-ring';
-  svg.style.cssText = 'left:-100px;top:-100px;';
-
-  const ellipse = document.createElementNS(svgNS, 'ellipse');
-  ellipse.setAttribute('cx', '40');
-  ellipse.setAttribute('cy', '40');
-  ellipse.setAttribute('rx', '22');
-  ellipse.setAttribute('ry', '22');
-  ellipse.setAttribute('fill', 'none');
-  ellipse.setAttribute('stroke', '#ffffff');
-  ellipse.setAttribute('stroke-width', '1.5');
-  ellipse.style.transformOrigin = '40px 40px';
-  // Shadow via SVG filter — defined inside SVG so it clips correctly
-  svg.innerHTML = `
-    <defs>
-      <filter id="cshadow" x="-50%" y="-50%" width="200%" height="200%">
-        <feDropShadow dx="0" dy="0" stdDeviation="2" flood-color="#000" flood-opacity="0.9"/>
-      </filter>
-    </defs>`;
-  ellipse.setAttribute('filter', 'url(#cshadow)');
-  svg.appendChild(ellipse);
-
-  document.body.appendChild(svg);
-  document.body.appendChild(dot);
+  function resizeCanvas(){
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
 
   const SPRING=0.12, DAMPING=0.78, BASE_R=22, MAX_SQUASH=0.45;
-  let mx=window.innerWidth/2, my=window.innerHeight/2;
-  let rx=mx, ry=my, vx=0, vy=0, isHovering=false;
+  let mx=window.innerWidth/2,  my=window.innerHeight/2;
+  let rx=mx, ry=my, vx=0, vy=0;
+  let isHovering=false;
+  let curOpacity=1;
 
   cells.forEach(cell=>{
-    cell.addEventListener('mouseenter',()=>isHovering=true);
-    cell.addEventListener('mouseleave',()=>isHovering=false);
+    cell.addEventListener('mouseenter', ()=>isHovering=true);
+    cell.addEventListener('mouseleave', ()=>isHovering=false);
   });
 
-  document.addEventListener('mousemove', e=>{
-    mx=e.clientX; my=e.clientY;
-    dot.style.left = mx+'px';
-    dot.style.top  = my+'px';
-  });
+  document.addEventListener('mousemove', e=>{ mx=e.clientX; my=e.clientY; });
 
   function lerp(a,b,t){ return a+(b-a)*t; }
 
+  let curRx=BASE_R, curRy=BASE_R, curAngle=0;
+
   (function animate(){
+    // Spring physics
     vx=(vx+(mx-rx)*SPRING)*DAMPING;
     vy=(vy+(my-ry)*SPRING)*DAMPING;
     rx+=vx; ry+=vy;
@@ -419,18 +391,50 @@
 
     const targetRx = isHovering ? BASE_R*1.9 : BASE_R*(1+stretch);
     const targetRy = isHovering ? BASE_R*1.9 : BASE_R*Math.max(0.55,1-stretch*0.7);
+    const targetOp = isHovering ? 0.85 : 1.0;
 
-    const newRx = lerp(parseFloat(ellipse.getAttribute('rx'))||BASE_R, targetRx, 0.18);
-    const newRy = lerp(parseFloat(ellipse.getAttribute('ry'))||BASE_R, targetRy, 0.18);
+    curRx    = lerp(curRx,    targetRx, 0.18);
+    curRy    = lerp(curRy,    targetRy, 0.18);
+    curAngle = lerp(curAngle, angle,    0.2);
+    curOpacity = lerp(curOpacity, targetOp, 0.15);
 
-    ellipse.setAttribute('rx', newRx);
-    ellipse.setAttribute('ry', newRy);
-    ellipse.style.transform = `rotate(${angle*(180/Math.PI)}deg)`;
-    ellipse.style.opacity   = isHovering ? '0.85' : '1';
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Centre the 80×80 SVG on the ring position
-    svg.style.left = (rx-40)+'px';
-    svg.style.top  = (ry-40)+'px';
+    ctx.save();
+
+    // Draw ring
+    ctx.save();
+    ctx.translate(rx, ry);
+    ctx.rotate(curAngle);
+    ctx.scale(1, curRy/curRx); // squash/stretch
+
+    ctx.beginPath();
+    ctx.arc(0, 0, curRx, 0, Math.PI*2);
+
+    // White stroke with black shadow — always visible
+    ctx.shadowColor   = 'rgba(0,0,0,0.95)';
+    ctx.shadowBlur    = 6;
+    ctx.strokeStyle   = `rgba(255,255,255,${curOpacity})`;
+    ctx.lineWidth     = 1.5;
+    ctx.stroke();
+
+    // Second pass — thicker shadow for extra contrast
+    ctx.shadowBlur  = 12;
+    ctx.shadowColor = 'rgba(0,0,0,0.6)';
+    ctx.stroke();
+
+    ctx.restore();
+
+    // Draw dot (follows mouse exactly, not ring lag)
+    ctx.beginPath();
+    ctx.arc(mx, my, 3, 0, Math.PI*2);
+    ctx.shadowColor = 'rgba(0,0,0,0.95)';
+    ctx.shadowBlur  = 4;
+    ctx.fillStyle   = '#ffffff';
+    ctx.fill();
+
+    ctx.restore();
 
     requestAnimationFrame(animate);
   })();
